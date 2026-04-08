@@ -1,0 +1,2 @@
+# sample_name<TAB>index_recomp<TAB>stagger_sequence
+sample_1	GTAGAGAC	A
