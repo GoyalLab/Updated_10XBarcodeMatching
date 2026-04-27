@@ -1,28 +1,71 @@
 #======================================================================================================================================
-#Input Files: It takes inputs from files generated in stepOne and from cellranger filteredMatrix -> barcode.tsv.gz
+# Input Files: outputs from stepOne and one or more cellranger filtered matrices (barcodes.tsv.gz).
+# Per-sample matrix lookup comes from staggers.txt (optional 4th column) or fall back to the default.
 #
 # Usage (CLI):
-#   Rscript stepTwo.R <filtered_bc_matrix_dir> <stepOne_base_dir> <output_base_dir> <sample1> [sample2 ...]
+#   Rscript stepTwo.R <staggers_path> <default_filtered_bc_matrix_dir> <stepOne_base_dir> <output_base_dir> <sample1> [sample2 ...]
 #======================================================================================================================================
 
 args <- commandArgs(trailingOnly = TRUE)
-if (length(args) >= 4) {
-  input1Directory <- args[1]
-  input2Base <- args[2]
-  outputBase <- args[3]
-  samples <- args[4:length(args)]
+if (length(args) >= 5) {
+  staggersPath <- args[1]
+  defaultMatrixDir <- args[2]
+  input2Base <- args[3]
+  outputBase <- args[4]
+  samples <- args[5:length(args)]
 } else {
-  stop("Usage: Rscript stepTwo.R <filtered_bc_matrix_dir> <stepOne_base_dir> <output_base_dir> <sample1> [sample2 ...]")
+  stop("Usage: Rscript stepTwo.R <staggers_path> <default_filtered_bc_matrix_dir> <stepOne_base_dir> <output_base_dir> <sample1> [sample2 ...]")
 }
 
 library(tidyverse, quietly = TRUE)
 library(stringdist, quietly = TRUE)
 library(gridExtra, quietly = TRUE)
 
-data1file = as_tibble(read.table(paste0(input1Directory,"barcodes.tsv.gz"), stringsAsFactors=F)) %>% dplyr::rename(cellID = V1) 
-data1file = as_tibble(substring(data1file$cellID, 1,nchar(data1file[1,1])-2)) %>% dplyr::rename(cellID = value) 
+parse_staggers_matrix_lookup <- function(path, default_matrix_dir) {
+  lookup <- character(0)
+  for (line in readLines(path)) {
+    line <- trimws(line)
+    if (nchar(line) == 0 || startsWith(line, "#")) next
+    parts <- strsplit(line, "\t", fixed = TRUE)[[1]]
+    sample_name <- trimws(parts[1])
+    matrix_dir <- if (length(parts) >= 4 && nchar(trimws(parts[4])) > 0) {
+      trimws(parts[4])
+    } else {
+      default_matrix_dir
+    }
+    lookup[sample_name] <- matrix_dir
+  }
+  lookup
+}
+
+load_filtered_barcodes <- local({
+  cache <- list()
+  function(matrix_dir) {
+    if (is.null(matrix_dir) || is.na(matrix_dir) || nchar(matrix_dir) == 0) {
+      stop("No filtered_bc_matrix_dir available (default empty and staggers entry blank).")
+    }
+    if (is.null(cache[[matrix_dir]])) {
+      barcodes_file <- file.path(matrix_dir, "barcodes.tsv.gz")
+      if (!file.exists(barcodes_file)) {
+        stop("barcodes.tsv.gz not found at: ", barcodes_file)
+      }
+      df <- as_tibble(read.table(barcodes_file, stringsAsFactors = FALSE)) %>%
+        dplyr::rename(cellID = V1)
+      df <- as_tibble(substring(df$cellID, 1, nchar(df[1, 1]) - 2)) %>%
+        dplyr::rename(cellID = value)
+      cache[[matrix_dir]] <<- df
+    }
+    cache[[matrix_dir]]
+  }
+})
+
+matrix_lookup <- parse_staggers_matrix_lookup(staggersPath, defaultMatrixDir)
 
 for (i in samples) {
+  matrix_dir <- if (i %in% names(matrix_lookup)) matrix_lookup[[i]] else defaultMatrixDir
+  cat(i, "→ matrix:", matrix_dir, "\n")
+  data1file <- load_filtered_barcodes(matrix_dir)
+
   input2Directory <- file.path(input2Base, i)
   data2file = as_tibble(read.table(file.path(input2Directory,"uniqueShavedReads.txt"), stringsAsFactors=F)) %>% dplyr::rename(cellID = V1,UMI = V2, BC = V3) %>%
     mutate(BC50 = substring(BC,1,50),

@@ -101,6 +101,7 @@ echo "========== STEP TWO =========="
 
 STEPTWO_OUT="${OUTPUT_DIR}"/stepTwo/
 Rscript "${SCRIPTS}/stepTwo.R" \
+    "$STAGGERS" \
     "$FILTERED_BC_MATRIX" \
     "$STEPONE_OUT" \
     "$STEPTWO_OUT" \

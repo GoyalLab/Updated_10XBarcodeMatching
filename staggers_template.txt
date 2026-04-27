@@ -1,2 +1,7 @@
-# sample_name<TAB>index_recomp<TAB>stagger_sequence
-sample_1	GTAGAGAC	A
+# sample_name<TAB>index_recomp<TAB>stagger_sequence<TAB>filtered_bc_matrix_dir
+# Leave stagger_sequence empty when there is no stagger.
+# Column 4 is optional; when filtered_bc_matrix_dir is omitted, stepTwo falls
+# back to the FILTERED_BC_MATRIX defined in stepAll.sh.
+sample_1	GTCTCTAC	A
+sample_2	CAGATAGT	CT	/path/to/sample_2_filtered_feature_bc_matrix/
+sample_3	ACGCATTC		/path/to/sample_3_filtered_feature_bc_matrix/

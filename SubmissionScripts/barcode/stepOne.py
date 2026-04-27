@@ -4,8 +4,9 @@
 #
 # Inputs:
 #   1. Undetermined.fastq.gz generated after demultiplexing
-#   2. Stagger file with format: sample_name<TAB>index<TAB>stagger_sequence
-#         The stagger_sequence can be empty (no stagger) or a short nucleotide string.
+#   2. Stagger file with format: 
+#           sample_name<TAB>index<TAB>stagger_sequence[<TAB>filtered_bc_matrix_dir]
+#           The stagger_sequence can be empty (no stagger) or a short nucleotide string.
 #
 # EIG updated Feb/Mar 2026:
 #   fixed regex demultiplexing bug by using index to demux
@@ -51,9 +52,7 @@ def parse_args():
 def load_staggers(path):
     """Parse stagger file. Returns list of (sample_name, index, stagger_sequence) tuples.
 
-    Each line is: sample_name<TAB>index<TAB>stagger_sequence
-    The stagger_sequence can be empty (no stagger) or a short nucleotide string.
-    Lines starting with # are comments. Blank lines are skipped.
+    Each line is: sample_name<TAB>index<TAB>stagger_sequence[<TAB>filtered_bc_matrix_dir]
     """
     samples = []
     seen_names = set()
@@ -64,17 +63,17 @@ def load_staggers(path):
                 continue
             parts = line.split("\t")
             if len(parts) == 2:
-                # sample_name + index, no stagger
                 name = parts[0].strip()
                 index_seq = parts[1].strip().upper()
                 stagger_seq = ""
-            elif len(parts) == 3:
+            elif len(parts) in (3, 4):
                 name = parts[0].strip()
                 index_seq = parts[1].strip().upper()
                 stagger_seq = parts[2].strip().upper()
             else:
-                sys.exit(f"ERROR: staggers.txt line {line_num}: expected 2-3 tab-separated "
-                         f"fields (sample_name, index, [stagger_sequence]), got {len(parts)}")
+                sys.exit(f"ERROR: staggers.txt line {line_num}: expected 2-4 tab-separated "
+                         f"fields (sample_name, index, [stagger_sequence], "
+                         f"[filtered_bc_matrix_dir]), got {len(parts)}")
 
             if name in seen_names:
                 sys.exit(f"ERROR: staggers.txt line {line_num}: duplicate sample name '{name}'")
